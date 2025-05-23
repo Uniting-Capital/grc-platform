@@ -107,14 +107,26 @@ services:
     container_name: caddy
     image: caddy:2.10.0
     environment:
+      {% if can_do_tls %}
+      - CISO_ASSISTANT_URL=https://{{ fqdn }}
+      {% else %}
       - CISO_ASSISTANT_URL=https://{{ fqdn }}:{{ port }}
+      {% endif %}
     depends_on:
       backend:
         condition: service_healthy
     restart: unless-stopped
+    {% if can_do_tls %}
+    # Expose standard HTTP + HTTPS for ACME + browser traffic
     ports:
-      - {{ port }}:{{ port }}{% if can_do_tls and port != 443 %}
-      - 443:443{% endif %}
+      - 80:80
+      - 443:443
+    {% else %}
+    # No real TLS, so just bind your chosen port
+    ports:
+      - "{{ port }}:{{ port }}"
+      - 443:443
+    {% endif %}
     volumes:
       - ./caddy_data:/data{% if not can_do_tls and use_custom_cert %}
       - {{ cert_config.cert_path }}:/etc/caddy/cert.pem:ro
